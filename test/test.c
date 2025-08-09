@@ -18,7 +18,7 @@ int main() {
     size_t len = ftell(fptr);
     fseek(fptr, 0, SEEK_SET);
 
-    char* buffer = arena_alloc(&arena, len);
+    char* buffer = arena_alloc(&arena, len + 1);
 
     if (!buffer) {
         ERROR("Alloc of json failed!");
@@ -27,6 +27,8 @@ int main() {
     }
 
     fread(buffer, 1, len, fptr);
+    fclose(fptr);
+    buffer[len] = '\0';
 
     Json json = parse_json(&arena, buffer);
     print_json(&json);
