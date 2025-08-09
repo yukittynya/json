@@ -31,7 +31,7 @@ int main() {
     buffer[len] = '\0';
 
     Json json = parse_json(&arena, buffer);
-    print_json(&json);
+    // print_json(&json);
 
     arena_free(&arena);
 }

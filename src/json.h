@@ -5,6 +5,7 @@
 
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdint.h>
 
 #define IS_NUMBER(c) (char_map[(char)(c)] & 1)
 #define IS_ALPHA(c) (char_map[(char)(c)] & 2)
@@ -32,6 +33,11 @@ typedef enum {
 typedef struct Pair Pair;
 
 typedef struct {
+    const char* ptr;
+    size_t len;
+} JsonString;
+
+typedef struct {
     Pair* pairs;
     size_t count;
     size_t capacity;
@@ -39,10 +45,10 @@ typedef struct {
 
 typedef struct Pair {
     JsonType type;
-    const char* key;
+    JsonString key;
     union {
         double number;
-        const char* str;
+        JsonString str;
         Block block;
         bool boolean;
     } value;

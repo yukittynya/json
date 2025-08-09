@@ -7,6 +7,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+static char temp_buffer[256];
+
 static const uint8_t char_map[256] = {
     ['0' ... '9'] = 1,
 
@@ -49,7 +51,7 @@ static Lexer* new_lexer(Arena* arena, const char* json) {
     Lexer* lexer = arena_alloc(arena, sizeof(*lexer));
 
     lexer -> arena = arena;
-    lexer -> json = arena_strdup(arena, json);
+    lexer -> json = json;
     lexer -> capacity = 16;
     lexer -> count = 0;
     lexer -> pairs = arena_array(arena, Pair, lexer -> capacity);
@@ -114,7 +116,6 @@ static inline void _skip_whitespace(Lexer* lexer) {
 }
 
 static void parse_key(Lexer* lexer, Pair* pair) {
-    char temp_buffer[256];
     int i = 0;
 
     _skip_whitespace(lexer);
@@ -125,26 +126,27 @@ static void parse_key(Lexer* lexer, Pair* pair) {
     }
 
     _lexer_advance(lexer);
-
+    const char* start = &lexer -> json[lexer -> curr];
     while (!IS_STRING_DELIM(lexer -> c)) {
         if (IS_IDENTIFIER(lexer -> c)) {
             input_error(lexer, "Expected closing string delimier '\"'.");
             arena_free(lexer -> arena);
             exit(1);
         }
-        temp_buffer[i++] = lexer -> c; 
         _lexer_advance(lexer);
     }
-    _lexer_advance(lexer);
 
-    temp_buffer[i] = '\0';
-    pair -> key = arena_strdup(lexer -> arena, temp_buffer);
+    size_t len = &lexer -> json[lexer -> curr] - start;
+    pair -> key.ptr = start;
+    pair -> key.len = len;
+
+    _lexer_advance(lexer);
 }
 
 static Block parse_block(Lexer* lexer) {
     Block block = {0};
     block.count = 0;
-    block.capacity = 8;
+    block.capacity = 2;
     block.pairs = arena_array(lexer -> arena, Pair, block.capacity);
 
     _skip_whitespace(lexer);
@@ -178,7 +180,6 @@ static Block parse_block(Lexer* lexer) {
 }
 
 static void parse_value(Lexer* lexer, Pair* pair) {
-    char temp_buffer[256];
     int i = 0;
 
     _skip_whitespace(lexer);
@@ -191,29 +192,28 @@ static void parse_value(Lexer* lexer, Pair* pair) {
     _skip_whitespace(lexer);
 
     if (IS_STRING_DELIM(lexer -> c)) {
-        JsonType type = JSON_STRING;
         _lexer_advance(lexer);
 
+        const char* start = &lexer -> json[lexer -> curr];
         while (!IS_STRING_DELIM(lexer -> c)) {
-            temp_buffer[i++] = lexer -> c; 
             _lexer_advance(lexer);
         }
-        _lexer_advance(lexer);
 
-        temp_buffer[i] = '\0';
-        pair -> type = type;
-        pair -> value.str = arena_strdup(lexer -> arena, temp_buffer);
+        size_t len = &lexer -> json[lexer -> curr] - start;
+        pair -> type = JSON_STRING;
+        pair -> value.str.ptr = start;
+        pair -> value.str.len = len;
+
+        _lexer_advance(lexer);
         return;
     } else if (IS_NUMBER(lexer -> c)) {
-        JsonType type = JSON_NUMBER;
-
         while (!IS_DELIM(lexer -> c) && lexer -> curr < lexer -> len) {
             temp_buffer[i++] = lexer -> c;
             _lexer_advance(lexer);
         }
 
         temp_buffer[i] = '\0';
-        pair -> type = type;
+        pair -> type = JSON_NUMBER;
         pair -> value.number = atof(temp_buffer);
         return;
     } 
@@ -225,15 +225,13 @@ static void parse_value(Lexer* lexer, Pair* pair) {
             break;
 
         case 'n':
-            while (!IS_DELIM(lexer -> c) && lexer -> curr < lexer -> len) {
-                temp_buffer[i++] = lexer -> c;
-                _lexer_advance(lexer);
-            }
-
-            temp_buffer[i] = '\0';
-            if (strcmp(temp_buffer, "null") == 0) {
+            if (strncmp(&lexer -> json[lexer -> curr], "null", 4) == 0) {
                 pair -> type = JSON_NULL;
-                pair -> value.str = arena_strdup(lexer -> arena, temp_buffer);
+                pair -> value.str.ptr = &lexer -> json[lexer -> curr];
+                pair -> value.str.len = 4;
+
+                lexer -> curr += 4;
+                lexer -> c = lexer -> json[lexer -> curr];
             } else {
                 input_error(lexer, "Unknown type.");
                 arena_free(lexer -> arena);
@@ -288,11 +286,11 @@ static void print_json_value(Pair* pair, int indent_level) {
         printf("    ");
     }
     
-    printf("\"%s\": ", pair->key);
+    printf("\"%.*s\": ", (int) pair -> key.len, pair -> key.ptr);
     
     switch (pair->type) {
         case JSON_STRING:
-            printf("\"%s\"", pair->value.str);
+            printf("\"%.*s\"", (int) pair -> value.str.len, pair -> value.str.ptr);
             break;
             
         case JSON_NUMBER:
@@ -304,7 +302,7 @@ static void print_json_value(Pair* pair, int indent_level) {
             break;
             
         case JSON_NULL:
-            printf("null");
+            printf("%.*s", (int) pair -> value.str.len, pair -> value.str.ptr);
             break;
             
         case JSON_BLOCK:
