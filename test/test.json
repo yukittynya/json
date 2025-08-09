@@ -2,7 +2,7 @@
     "pilk": null,
     "john": 21, 
     "real test": {
-        "pine": false,
+        "pine": "cone",
         "cone": "pine"
     }
 }

@@ -18,18 +18,18 @@ int main() {
     size_t len = ftell(fptr);
     fseek(fptr, 0, SEEK_SET);
 
-    char* json = arena_alloc(&arena, len);
+    char* buffer = arena_alloc(&arena, len);
 
-    if (!json) {
+    if (!buffer) {
         ERROR("Alloc of json failed!");
         arena_free(&arena);
         return 1;
     }
 
-    fread(json, 1, len, fptr);
+    fread(buffer, 1, len, fptr);
 
-    printf("json: %s", json);
+    Json json = parse_json(&arena, buffer);
+    print_json(&json);
 
-    parse_json(&arena, json);
     arena_free(&arena);
 }

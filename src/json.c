@@ -167,7 +167,7 @@ static Block parse_block(Lexer* lexer) {
             _lexer_advance(lexer);
             _skip_whitespace(lexer);
         } else if (lexer -> c != '}') {
-            input_error(lexer, "Exepcted '}' or ','.");
+            input_error(lexer, "Expected '}' or ','.");
             arena_free(lexer -> arena);
             exit(1);
         }
@@ -328,11 +328,11 @@ static void print_json_value(Pair* pair, int indent_level) {
     }
 }
 
-void print_json(Lexer* lexer) {
+void print_json(Json* json) {
     printf("{\n");
-    for (int i = 0; i < lexer->count; i++) {
-        print_json_value(&lexer->pairs[i], 1);
-        if (i < lexer->count - 1) {
+    for (int i = 0; i < json -> count; i++) {
+        print_json_value(&json -> pairs[i], 1);
+        if (i < json ->count - 1) {
             printf(",");
         }
         printf("\n");
@@ -340,7 +340,7 @@ void print_json(Lexer* lexer) {
     printf("}\n");
 }
 
-void parse_json(Arena* arena, const char* json) {
+Json parse_json(Arena* arena, const char* json) {
     Lexer* lexer = new_lexer(arena, json);
 
     _skip_whitespace(lexer);
@@ -358,7 +358,6 @@ void parse_json(Arena* arena, const char* json) {
         parse_key(lexer, &pair);
         parse_value(lexer, &pair);
         push_pair(lexer, pair);
-        printf("Pair key: %s\n", pair.key);
 
         _skip_whitespace(lexer);
         if (lexer -> c == ',') {
@@ -371,6 +370,8 @@ void parse_json(Arena* arena, const char* json) {
         }
     }
 
-    printf("Parsed JSON:\n");
-    print_json(lexer);
+    return (Json) {
+        .pairs = lexer -> pairs,
+        .count = lexer -> count,
+    };
 }

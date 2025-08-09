@@ -59,6 +59,12 @@ typedef struct {
     char c;
 } Lexer;
 
-void parse_json(Arena* arena, const char* json);
+typedef struct {
+    Pair* pairs;
+    size_t count;
+} Json;
+
+Json parse_json(Arena* arena, const char* json);
+void print_json(Json* json);
 
 #endif // !JSON_H
