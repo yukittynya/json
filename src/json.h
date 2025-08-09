@@ -5,7 +5,6 @@
 
 #include <stdbool.h>
 #include <stddef.h>
-#include <stdint.h>
 
 #define IS_NUMBER(c) (char_map[(char)(c)] & 1)
 #define IS_ALPHA(c) (char_map[(char)(c)] & 2)
