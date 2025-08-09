@@ -97,14 +97,6 @@ static inline void _skip_whitespace(Lexer* lexer) {
     }
 }
 
-static inline void _consume_delimiter(Lexer* lexer) {
-    _skip_whitespace(lexer);
-    if (IS_DELIM(lexer -> c)){
-        _lexer_advance(lexer);
-        _skip_whitespace(lexer);
-    }
-}
-
 static void parse_key(Lexer* lexer, Pair* pair) {
     char temp_buffer[256];
     int i = 0;
@@ -186,7 +178,6 @@ static void parse_value(Lexer* lexer, Pair* pair) {
             _lexer_advance(lexer);
         }
         _lexer_advance(lexer);
-        _consume_delimiter(lexer);
 
         temp_buffer[i] = '\0';
         pair -> type = type;
@@ -199,8 +190,6 @@ static void parse_value(Lexer* lexer, Pair* pair) {
             temp_buffer[i++] = lexer -> c;
             _lexer_advance(lexer);
         }
-        _lexer_advance(lexer);
-        _consume_delimiter(lexer);
 
         temp_buffer[i] = '\0';
         pair -> type = type;
@@ -219,8 +208,6 @@ static void parse_value(Lexer* lexer, Pair* pair) {
                 temp_buffer[i++] = lexer -> c;
                 _lexer_advance(lexer);
             }
-            _lexer_advance(lexer);
-            _consume_delimiter(lexer);
 
             temp_buffer[i] = '\0';
             if (strcmp(temp_buffer, "null") == 0) {
@@ -238,8 +225,6 @@ static void parse_value(Lexer* lexer, Pair* pair) {
                 temp_buffer[i++] = lexer -> c;
                 _lexer_advance(lexer);
             }
-            _lexer_advance(lexer);
-            _consume_delimiter(lexer);
 
             temp_buffer[i] = '\0';
             if (strcmp(temp_buffer, "true") == 0) {
@@ -257,8 +242,6 @@ static void parse_value(Lexer* lexer, Pair* pair) {
                 temp_buffer[i++] = lexer -> c;
                 _lexer_advance(lexer);
             }
-            _lexer_advance(lexer);
-            _consume_delimiter(lexer);
 
             temp_buffer[i] = '\0';
             if (strcmp(temp_buffer, "false") == 0) {
@@ -273,19 +256,94 @@ static void parse_value(Lexer* lexer, Pair* pair) {
     }
 }
 
+static void print_json_value(Pair* pair, int indent_level) {
+    for (int i = 0; i < indent_level; i++) {
+        printf("    ");
+    }
+    
+    printf("\"%s\": ", pair->key);
+    
+    switch (pair->type) {
+        case JSON_STRING:
+            printf("\"%s\"", pair->value.str);
+            break;
+            
+        case JSON_NUMBER:
+            printf("%.2f", pair->value.number);
+            break;
+            
+        case JSON_BOOL:
+            printf("%s", pair->value.boolean ? "true" : "false");
+            break;
+            
+        case JSON_NULL:
+            printf("null");
+            break;
+            
+        case JSON_BLOCK:
+            printf("{\n");
+            for (int i = 0; i < pair->value.block.count; i++) {
+                print_json_value(&pair->value.block.pairs[i], indent_level + 1);
+                if (i < pair->value.block.count - 1) {
+                    printf(",");
+                }
+                printf("\n");
+            }
+            for (int i = 0; i < indent_level; i++) {
+                printf("  ");
+            }
+            printf("}");
+            break;
+            
+        default:
+            printf("unknown");
+            break;
+    }
+}
+
+void print_json(Lexer* lexer) {
+    printf("{\n");
+    for (int i = 0; i < lexer->count; i++) {
+        print_json_value(&lexer->pairs[i], 1);
+        if (i < lexer->count - 1) {
+            printf(",");
+        }
+        printf("\n");
+    }
+    printf("}\n");
+}
+
 void parse_json(Arena* arena, const char* json) {
     Lexer* lexer = new_lexer(arena, json);
 
-    if (lexer -> c == '{') {
-        _lexer_advance(lexer);
+    _skip_whitespace(lexer);
+    if (lexer -> c != '{') {
+        INPUT_ERROR("Expected '{'");
+        arena_free(lexer -> arena);
+        exit(1);
     }
+    _lexer_advance(lexer);
+    _skip_whitespace(lexer);
 
-    while (lexer -> curr < lexer -> len) {
-        Pair pair;
+    while (lexer -> c != '}') {
+        Pair pair = {0};
 
         parse_key(lexer, &pair);
         parse_value(lexer, &pair);
         push_pair(lexer, pair);
         printf("Pair key: %s\n", pair.key);
+
+        _skip_whitespace(lexer);
+        if (lexer -> c == ',') {
+            _lexer_advance(lexer);
+            _skip_whitespace(lexer);
+        } else if (lexer -> c != '}') {
+            INPUT_ERROR("Expected '}'");
+            arena_free(lexer -> arena);
+            exit(1);
+        }
     }
+
+    printf("Parsed JSON:\n");
+    print_json(lexer);
 }
