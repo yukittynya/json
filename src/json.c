@@ -29,6 +29,22 @@ static const uint8_t char_map[256] = {
 
 static void parse_value(Lexer* lexer, Pair* pair); 
 
+static void input_error(Lexer* lexer, const char* msg) {
+    int line = 1; 
+    int col = 1;
+
+    for (int i = 0; i < lexer -> curr; i++) {
+        if (lexer -> json[i] == '\n') {
+            line++;
+            col = 1;
+        } else {
+            col++;
+        }
+    }
+
+    printf("\e[1merror:\e[0m %s Line %d Column %d\n", msg, line, col);
+}
+
 static Lexer* new_lexer(Arena* arena, const char* json) {
     Lexer* lexer = arena_alloc(arena, sizeof(*lexer));
 
@@ -103,7 +119,7 @@ static void parse_key(Lexer* lexer, Pair* pair) {
 
     _skip_whitespace(lexer);
     if (!IS_STRING_DELIM(lexer ->c)) {
-        INPUT_ERROR("Could not find starting string delimiter!");
+        input_error(lexer, "Expected starting string delimiter '\"'.");
         arena_free(lexer -> arena);
         exit(1);
     }
@@ -111,6 +127,11 @@ static void parse_key(Lexer* lexer, Pair* pair) {
     _lexer_advance(lexer);
 
     while (!IS_STRING_DELIM(lexer -> c)) {
+        if (IS_IDENTIFIER(lexer -> c)) {
+            input_error(lexer, "Expected closing string delimier '\"'.");
+            arena_free(lexer -> arena);
+            exit(1);
+        }
         temp_buffer[i++] = lexer -> c; 
         _lexer_advance(lexer);
     }
@@ -128,7 +149,7 @@ static Block parse_block(Lexer* lexer) {
 
     _skip_whitespace(lexer);
     if (lexer -> c != '{') {
-        INPUT_ERROR("Expected '{'!");
+        input_error(lexer, "Expected '{'.");
         arena_free(lexer -> arena);
         exit(1);
     }
@@ -146,7 +167,7 @@ static Block parse_block(Lexer* lexer) {
             _lexer_advance(lexer);
             _skip_whitespace(lexer);
         } else if (lexer -> c != '}') {
-            INPUT_ERROR("Exepcted '}' or ','!");
+            input_error(lexer, "Exepcted '}' or ','.");
             arena_free(lexer -> arena);
             exit(1);
         }
@@ -162,7 +183,7 @@ static void parse_value(Lexer* lexer, Pair* pair) {
 
     _skip_whitespace(lexer);
     if (!IS_IDENTIFIER(lexer -> c)) {
-        INPUT_ERROR("Expected indentifier, ':'!");
+        input_error(lexer, "Expected indentifier, ':'.");
         arena_free(lexer -> arena);
         exit(1);
     }
@@ -214,7 +235,7 @@ static void parse_value(Lexer* lexer, Pair* pair) {
                 pair -> type = JSON_NULL;
                 pair -> value.str = arena_strdup(lexer -> arena, temp_buffer);
             } else {
-                INPUT_ERROR("Unknown type");
+                input_error(lexer, "Unknown type.");
                 arena_free(lexer -> arena);
                 exit(1);
             }
@@ -231,7 +252,7 @@ static void parse_value(Lexer* lexer, Pair* pair) {
                 pair -> type = JSON_BOOL;
                 pair -> value.boolean =  true;
             } else {
-                INPUT_ERROR("Unknown type");
+                input_error(lexer, "Unknown type.");
                 arena_free(lexer -> arena);
                 exit(1);
             }
@@ -248,10 +269,16 @@ static void parse_value(Lexer* lexer, Pair* pair) {
                 pair -> type = JSON_BOOL;
                 pair -> value.boolean = false; 
             } else {
-                INPUT_ERROR("Unknown type");
+                input_error(lexer, "Unknown type.");
                 arena_free(lexer -> arena);
                 exit(1);
             }
+            break;
+
+        default:
+            input_error(lexer, "Expected string delimiter '\"'.");
+            arena_free(lexer -> arena);
+            exit(1);
             break;
     }
 }
@@ -318,7 +345,7 @@ void parse_json(Arena* arena, const char* json) {
 
     _skip_whitespace(lexer);
     if (lexer -> c != '{') {
-        INPUT_ERROR("Expected '{'");
+        input_error(lexer, "Expected '{'.");
         arena_free(lexer -> arena);
         exit(1);
     }
@@ -338,7 +365,7 @@ void parse_json(Arena* arena, const char* json) {
             _lexer_advance(lexer);
             _skip_whitespace(lexer);
         } else if (lexer -> c != '}') {
-            INPUT_ERROR("Expected '}'");
+            input_error(lexer, "Expected '}'.");
             arena_free(lexer -> arena);
             exit(1);
         }

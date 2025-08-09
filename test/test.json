@@ -1,8 +1,8 @@
 {
-    "pilk": "pink",
+    "pilk": null,
     "john": 21, 
     "real test": {
-        "pine": "cone",
+        "pine": false,
         "cone": "pine"
     }
 }
